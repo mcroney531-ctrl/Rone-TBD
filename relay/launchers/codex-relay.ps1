@@ -1,0 +1,2 @@
+$env:AGENT_RELAY_TOKEN = $env:AGENT_RELAY_TOKEN_CODEX
+codex @args
