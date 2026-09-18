@@ -3,9 +3,11 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { authenticate, AuthError } from "./auth.js";
 import { buildMcpServer } from "./mcpServer.js";
 import { pool } from "./db.js";
+import { adminRouter } from "./admin.js";
 
 const app = express();
 app.use(express.json());
+app.use("/admin", adminRouter);
 
 app.get("/healthz", async (_req, res) => {
   try {

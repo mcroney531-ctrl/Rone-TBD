@@ -43,8 +43,8 @@ export async function sendMessage(
     );
     if (existing) {
       return {
-        message_id: existing.message_id,
-        thread_id: existing.thread_id,
+        message_id: existing.message_id as string,
+        thread_id: existing.thread_id as string,
         seq: Number(existing.seq),
         replayed: true,
       };
