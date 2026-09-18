@@ -5,18 +5,20 @@ import { checkIdempotency, hashPayload } from "../idempotency.js";
 import { ensureProject, recordEvent } from "../projects.js";
 import type { AuthenticatedAgent } from "../auth.js";
 
-export const sendMessageSchema = z
-  .object({
-    project_id: z.string().min(1),
-    to_agent_id: z.string().min(1).optional(),
-    broadcast: z.boolean().optional(),
-    reply_to: z.string().min(1).optional(),
-    body: z.record(z.unknown()),
-    idempotency_key: z.string().min(1),
-  })
-  .refine((v) => Boolean(v.to_agent_id) !== Boolean(v.broadcast), {
-    message: "exactly one of to_agent_id or broadcast must be set",
-  });
+// Plain z.object, deliberately not wrapped in .refine(): the MCP SDK's
+// JSON-schema conversion loses per-field type info when the top-level
+// schema is a ZodEffects, which left clients with no idea `body` should
+// be an object instead of a string. The to_agent_id/broadcast exclusivity
+// check that used to live in .refine() is now a runtime check in the
+// handler below.
+export const sendMessageSchema = z.object({
+  project_id: z.string().min(1),
+  to_agent_id: z.string().min(1).optional(),
+  broadcast: z.boolean().optional(),
+  reply_to: z.string().min(1).optional(),
+  body: z.record(z.unknown()),
+  idempotency_key: z.string().min(1),
+});
 
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 
@@ -30,6 +32,10 @@ export async function sendMessage(
   caller: AuthenticatedAgent,
   input: SendMessageInput
 ) {
+  if (Boolean(input.to_agent_id) === Boolean(input.broadcast)) {
+    throw new Error("exactly one of to_agent_id or broadcast must be set");
+  }
+
   const requestHash = hashPayload(input);
 
   return withTransaction(async (client) => {

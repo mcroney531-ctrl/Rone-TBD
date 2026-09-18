@@ -18,21 +18,23 @@ export const getProjectStateSchema = z.object({
   project_id: z.string().min(1),
 });
 
+// patch is a plain z.object here, not wrapped in .refine() -- same reason
+// as send_message: a ZodEffects at any level breaks the JSON-schema the
+// MCP SDK hands to clients, so the "at least one field" check moved into
+// the handler below instead of living in the schema.
 export const updateProjectStateSchema = z.object({
   project_id: z.string().min(1),
   expected_version: z.number().int().positive(),
-  patch: z
-    .object({
-      objective: z.string().optional(),
-      phase: z.string().optional(),
-      decisions_made: z.array(z.unknown()).optional(),
-      decisions_rejected: z.array(z.unknown()).optional(),
-      open_questions: z.array(z.unknown()).optional(),
-      known_bugs: z.array(z.unknown()).optional(),
-      repos: z.array(z.unknown()).optional(),
-      next_actions: z.array(z.unknown()).optional(),
-    })
-    .refine((p) => Object.keys(p).length > 0, "patch must set at least one field"),
+  patch: z.object({
+    objective: z.string().optional(),
+    phase: z.string().optional(),
+    decisions_made: z.array(z.unknown()).optional(),
+    decisions_rejected: z.array(z.unknown()).optional(),
+    open_questions: z.array(z.unknown()).optional(),
+    known_bugs: z.array(z.unknown()).optional(),
+    repos: z.array(z.unknown()).optional(),
+    next_actions: z.array(z.unknown()).optional(),
+  }),
 });
 
 export async function getProjectState(input: z.infer<typeof getProjectStateSchema>) {
@@ -50,6 +52,10 @@ export async function updateProjectState(
   caller: AuthenticatedAgent,
   input: z.infer<typeof updateProjectStateSchema>
 ) {
+  if (Object.keys(input.patch).length === 0) {
+    throw new Error("patch must set at least one field");
+  }
+
   return withTransaction(async (client) => {
     await ensureProject(client, input.project_id);
 
