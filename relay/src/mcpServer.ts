@@ -126,7 +126,7 @@ export function buildMcpServer(caller: AuthenticatedAgent): McpServer {
     "resolve_thread",
     {
       description:
-        "Mark a whole thread resolved (thread-level, not per-message). Optional decision_ref points at where the outcome actually landed (a project_state field, a handoff_id) -- not enforced, just makes the trace queryable later.",
+        "Mark a whole thread resolved (thread-level, not per-message). Optional decision_ref is a structured pointer to where the outcome actually landed: {type: 'project_state'|'handoff'|'message'|'external', ref: string, note?: string} -- not enforced, just makes the trace queryable later instead of free text decaying into 'see state'.",
       inputSchema: resolveThreadSchema,
     },
     async (args) => {
@@ -212,7 +212,7 @@ export function buildMcpServer(caller: AuthenticatedAgent): McpServer {
     "get_project_context",
     {
       description:
-        "One-call orientation packet for a fresh session: current project_state (including repo_context), the 5 most recent handoffs, every unresolved thread in the project, and this agent's own pending/pulled inbox. Read-only -- does not flip inbox receipt states, unlike get_inbox.",
+        "One-call orientation packet for a fresh session: current project_state (including repo_context), the 5 most recent handoffs, every unresolved thread in the project, and this agent's own pending/pulled inbox. Includes context_generated_at, project_state_version, and event_seq_high_watermark so the packet's freshness is auditable later -- best-effort markers, not a serializable snapshot. Read-only -- does not flip inbox receipt states, unlike get_inbox.",
       inputSchema: getProjectContextSchema,
     },
     async (args) => {

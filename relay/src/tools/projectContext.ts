@@ -60,7 +60,19 @@ export async function getProjectContext(
       [caller.agentId, input.project_id]
     );
 
+    const highWatermarkResult = await client.query(
+      `select coalesce(max(seq), 0) as high_watermark from events where project_id = $1`,
+      [input.project_id]
+    );
+
     return {
+      // Best-effort freshness markers, not a serializable snapshot -- each
+      // query above sees latest-committed data as of when it ran, not one
+      // consistent instant. Good enough to answer "how stale was this
+      // packet when an agent started working," not for correctness logic.
+      context_generated_at: new Date().toISOString(),
+      project_state_version: Number(stateResult.rows[0].version),
+      event_seq_high_watermark: Number(highWatermarkResult.rows[0].high_watermark),
       project_state: stateResult.rows[0],
       recent_handoffs: handoffsResult.rows,
       unresolved_threads: unresolvedThreadsResult.rows,

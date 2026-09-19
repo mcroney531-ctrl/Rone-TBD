@@ -9,12 +9,18 @@ export const getMessageSchema = z.object({
   message_id: z.string().min(1),
 });
 
+export const decisionRefSchema = z.object({
+  type: z.enum(["project_state", "handoff", "message", "external"]),
+  ref: z.string().min(1),
+  note: z.string().optional(),
+});
+
 export const resolveThreadSchema = z.object({
   thread_id: z.string().min(1),
-  // Optional pointer to where this thread's outcome actually landed --
-  // a project_state field, a handoff_id, whatever. Nothing enforces this
-  // exists; it's just queryable trace, not a validation rule.
-  decision_ref: z.string().optional(),
+  // Optional structured pointer to where this thread's outcome actually
+  // landed. Free text decays into "see state"/"handled above" garbage
+  // fast -- this stays queryable without adding any semantic judgment.
+  decision_ref: decisionRefSchema.optional(),
 });
 
 async function receiptsFor(messageIds: string[]) {
@@ -76,12 +82,12 @@ export async function resolveThread(
 ) {
   await pool.query(
     `insert into thread_resolutions (thread_id, resolved_by_agent_id, decision_ref)
-     values ($1, $2, $3)
+     values ($1, $2, $3::jsonb)
      on conflict (thread_id) do update
        set resolved_by_agent_id = excluded.resolved_by_agent_id,
            resolved_at = now(),
            decision_ref = excluded.decision_ref`,
-    [input.thread_id, callerAgentId, input.decision_ref ?? null]
+    [input.thread_id, callerAgentId, input.decision_ref ? JSON.stringify(input.decision_ref) : null]
   );
   return { ok: true };
 }

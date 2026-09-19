@@ -71,16 +71,26 @@ async function main() {
   ok(ctxB.project_state.repo_context.working_branch === "claude/frontend-redesign-film-room", "get_project_context surfaces repo_context");
   ok(ctxB.unresolved_threads.some((t: { thread_id: string }) => t.thread_id === msg.thread_id), "get_project_context lists the unresolved thread");
   ok(ctxB.your_inbox.some((m: { message_id: string }) => m.message_id === msg.message_id), "get_project_context includes the pending inbox item");
+  ok(typeof ctxB.context_generated_at === "string" && !Number.isNaN(Date.parse(ctxB.context_generated_at)), "context_generated_at is a valid timestamp");
+  ok(ctxB.project_state_version === Number(updated.version), "project_state_version matches the state just written");
+  ok(ctxB.event_seq_high_watermark >= 1, "event_seq_high_watermark is a real number, not zero, after real events happened");
 
   // get_project_context must NOT mutate receipt state (pure read)
   const inboxAfter = unwrap(await b.callTool({ name: "get_inbox", arguments: { project_id: projectId } }));
   const receiptState = inboxAfter.messages.find((m: { message_id: string }) => m.message_id === msg.message_id)?.receipt_state;
   ok(receiptState === "pulled", "get_inbox still correctly flips pending -> pulled (get_project_context didn't consume it first)");
 
-  // resolve_thread with decision_ref
-  await b.callTool({ name: "resolve_thread", arguments: { thread_id: msg.thread_id, decision_ref: "project_state.repo_context" } });
+  // resolve_thread with structured decision_ref
+  await b.callTool({
+    name: "resolve_thread",
+    arguments: {
+      thread_id: msg.thread_id,
+      decision_ref: { type: "project_state", ref: "repo_context", note: "set during context test" },
+    },
+  });
   const thread = unwrap(await a.callTool({ name: "get_thread", arguments: { thread_id: msg.thread_id } }));
-  ok(thread.resolved?.decision_ref === "project_state.repo_context", "resolve_thread's decision_ref round-trips through get_thread");
+  ok(thread.resolved?.decision_ref?.type === "project_state", "structured decision_ref round-trips through get_thread (type)");
+  ok(thread.resolved?.decision_ref?.ref === "repo_context", "structured decision_ref round-trips through get_thread (ref)");
 
   // now resolved, should drop out of get_project_context's unresolved list
   const ctxAfter = unwrap(await a.callTool({ name: "get_project_context", arguments: { project_id: projectId } }));
