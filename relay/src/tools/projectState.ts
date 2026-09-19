@@ -12,6 +12,7 @@ const PATCHABLE_FIELDS = [
   "known_bugs",
   "repos",
   "next_actions",
+  "repo_context",
 ] as const;
 
 export const getProjectStateSchema = z.object({
@@ -34,6 +35,10 @@ export const updateProjectStateSchema = z.object({
     known_bugs: z.array(z.unknown()).optional(),
     repos: z.array(z.unknown()).optional(),
     next_actions: z.array(z.unknown()).optional(),
+    // Canonical repo/branch identity -- e.g. {repo_url, default_branch,
+    // working_branch, latest_known_commit}. A dedicated structured field
+    // so this can't just get lost inside a decisions_made paragraph again.
+    repo_context: z.record(z.unknown()).optional(),
   }),
 });
 

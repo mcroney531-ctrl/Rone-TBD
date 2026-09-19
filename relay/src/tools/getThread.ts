@@ -11,6 +11,10 @@ export const getMessageSchema = z.object({
 
 export const resolveThreadSchema = z.object({
   thread_id: z.string().min(1),
+  // Optional pointer to where this thread's outcome actually landed --
+  // a project_state field, a handoff_id, whatever. Nothing enforces this
+  // exists; it's just queryable trace, not a validation rule.
+  decision_ref: z.string().optional(),
 });
 
 async function receiptsFor(messageIds: string[]) {
@@ -36,7 +40,7 @@ export async function getThread(input: z.infer<typeof getThreadSchema>) {
 
   const receipts = await receiptsFor(messagesResult.rows.map((r) => r.message_id));
   const resolution = await pool.query(
-    `select resolved_by_agent_id, resolved_at from thread_resolutions where thread_id = $1`,
+    `select resolved_by_agent_id, resolved_at, decision_ref from thread_resolutions where thread_id = $1`,
     [input.thread_id]
   );
 
@@ -71,12 +75,13 @@ export async function resolveThread(
   input: z.infer<typeof resolveThreadSchema>
 ) {
   await pool.query(
-    `insert into thread_resolutions (thread_id, resolved_by_agent_id)
-     values ($1, $2)
+    `insert into thread_resolutions (thread_id, resolved_by_agent_id, decision_ref)
+     values ($1, $2, $3)
      on conflict (thread_id) do update
        set resolved_by_agent_id = excluded.resolved_by_agent_id,
-           resolved_at = now()`,
-    [input.thread_id, callerAgentId]
+           resolved_at = now(),
+           decision_ref = excluded.decision_ref`,
+    [input.thread_id, callerAgentId, input.decision_ref ?? null]
   );
   return { ok: true };
 }
