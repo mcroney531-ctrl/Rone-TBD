@@ -96,6 +96,51 @@ async function main() {
   const ctxAfter = unwrap(await a.callTool({ name: "get_project_context", arguments: { project_id: projectId } }));
   ok(!ctxAfter.unresolved_threads.some((t: { thread_id: string }) => t.thread_id === msg.thread_id), "resolved thread drops out of unresolved_threads");
 
+  // resolve_thread must append a real event, not mutate silently
+  const events = unwrap(await a.callTool({ name: "list_events", arguments: { project_id: projectId } }));
+  ok(
+    events.events.some((e: { kind: string; payload: { thread_id: string } }) => e.kind === "thread.resolved" && e.payload.thread_id === msg.thread_id),
+    "resolve_thread appends a thread.resolved event"
+  );
+
+  // get_thread (not get_inbox) must also flip a fresh pending receipt to pulled
+  const msg2 = unwrap(
+    await a.callTool({
+      name: "send_message",
+      arguments: {
+        project_id: projectId,
+        to_agent_id: "claude-b",
+        body: { text: "read via get_thread, not get_inbox" },
+        idempotency_key: "context-test-2",
+      },
+    })
+  );
+  await b.callTool({ name: "get_thread", arguments: { thread_id: msg2.thread_id } });
+  const inboxAfter2 = unwrap(await b.callTool({ name: "get_inbox", arguments: { project_id: projectId } }));
+  const receipt2 = inboxAfter2.messages.find((m: { message_id: string }) => m.message_id === msg2.message_id);
+  ok(receipt2?.receipt_state === "pulled", "get_thread flips a fresh pending receipt to pulled, same as get_inbox would");
+
+  // publish_handoff's supersedes pointer round-trips
+  const handoff1 = unwrap(
+    await a.callTool({
+      name: "publish_handoff",
+      arguments: { project_id: projectId, objective: "first draft", idempotency_key: "supersedes-test-1" },
+    })
+  );
+  const handoff2 = unwrap(
+    await a.callTool({
+      name: "publish_handoff",
+      arguments: {
+        project_id: projectId,
+        objective: "revised draft",
+        supersedes: handoff1.handoff_id,
+        idempotency_key: "supersedes-test-2",
+      },
+    })
+  );
+  const fetchedHandoff2 = unwrap(await a.callTool({ name: "get_handoff", arguments: { handoff_id: handoff2.handoff_id } }));
+  ok(fetchedHandoff2.supersedes === handoff1.handoff_id, "publish_handoff's supersedes pointer round-trips through get_handoff");
+
   console.log(process.exitCode ? "\nFAIL" : "\nPASS");
 }
 

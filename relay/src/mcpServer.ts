@@ -95,12 +95,13 @@ export function buildMcpServer(caller: AuthenticatedAgent): McpServer {
   server.registerTool(
     "get_thread",
     {
-      description: "Fetch every message in a thread plus each recipient's receipt state.",
+      description:
+        "Fetch every message in a thread plus each recipient's receipt state. Flips this agent's own pending receipts on those messages to pulled, same as get_inbox -- reading a message via get_thread instead of get_inbox still counts as having seen it.",
       inputSchema: getThreadSchema,
     },
     async (args) => {
       try {
-        return json(await getThread(args));
+        return json(await getThread(caller, args));
       } catch (err) {
         return errorResult(err);
       }
@@ -110,12 +111,13 @@ export function buildMcpServer(caller: AuthenticatedAgent): McpServer {
   server.registerTool(
     "get_message",
     {
-      description: "Fetch one message plus its recipients' receipt states.",
+      description:
+        "Fetch one message plus its recipients' receipt states. Flips this agent's own pending receipt on it to pulled, same as get_inbox.",
       inputSchema: getMessageSchema,
     },
     async (args) => {
       try {
-        return json(await getMessage(args));
+        return json(await getMessage(caller, args));
       } catch (err) {
         return errorResult(err);
       }
@@ -172,7 +174,8 @@ export function buildMcpServer(caller: AuthenticatedAgent): McpServer {
   server.registerTool(
     "publish_handoff",
     {
-      description: "Publish a structured, immutable work-handoff snapshot for a project.",
+      description:
+        "Publish a structured, immutable work-handoff snapshot for a project. Optional supersedes (a prior handoff_id) links this one as the update to an earlier proposal -- handoffs are immutable, so without this a superseded proposal just sits there with no forward pointer.",
       inputSchema: publishHandoffSchema,
     },
     async (args) => {

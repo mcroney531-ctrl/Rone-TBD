@@ -15,6 +15,10 @@ export const publishHandoffSchema = z.object({
   unresolved_questions: z.array(z.unknown()).optional(),
   files_refs: z.array(z.unknown()).optional(),
   raw_transcript_ref: z.string().optional(),
+  // Handoffs are immutable, so a proposal that gets reconsidered just
+  // sits there with no link to what replaced it. This is that link --
+  // mechanical pointer, no claim about which one was "right".
+  supersedes: z.string().optional(),
   idempotency_key: z.string().min(1),
 });
 
@@ -51,8 +55,9 @@ export async function publishHandoff(
       `insert into handoffs
          (idempotency_key, request_hash, project_id, from_agent_id, to_agent_id,
           source_session_id, objective, current_state, decisions_made,
-          important_context, unresolved_questions, files_refs, raw_transcript_ref)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+          important_context, unresolved_questions, files_refs, raw_transcript_ref,
+          supersedes)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
        returning handoff_id`,
       [
         input.idempotency_key,
@@ -68,6 +73,7 @@ export async function publishHandoff(
         JSON.stringify(input.unresolved_questions ?? []),
         JSON.stringify(input.files_refs ?? []),
         input.raw_transcript_ref ?? null,
+        input.supersedes ?? null,
       ]
     );
 

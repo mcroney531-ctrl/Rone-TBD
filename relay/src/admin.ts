@@ -108,7 +108,7 @@ adminRouter.post("/self-test", async (_req, res) => {
 
     await ackMessage(b, { message_id: ping.message_id, state: "acknowledged" });
 
-    const thread = await getThread({ thread_id: ping.thread_id });
+    const thread = await getThread(a, { thread_id: ping.thread_id });
     check(thread.messages.length === 2, "thread has both messages");
     const pingInThread = thread.messages.find((m) => m.message_id === ping.message_id);
     const bReceipt = pingInThread?.receipts.find((r: { agent_id: string; state: string }) => r.agent_id === "claude-b");
