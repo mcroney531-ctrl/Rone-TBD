@@ -71,6 +71,11 @@ export async function getProjectContext(
       // consistent instant. Good enough to answer "how stale was this
       // packet when an agent started working," not for correctness logic.
       context_generated_at: new Date().toISOString(),
+      // Surfaced here too, not just via whoami: a session pulling context
+      // at the start of its work should see its own attributed identity
+      // in the same call, not have to remember a separate check.
+      caller_agent_id: caller.agentId,
+      caller_display_name: caller.displayName,
       project_state_version: Number(stateResult.rows[0].version),
       event_seq_high_watermark: Number(highWatermarkResult.rows[0].high_watermark),
       project_state: stateResult.rows[0],

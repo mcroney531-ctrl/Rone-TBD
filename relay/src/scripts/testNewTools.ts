@@ -32,6 +32,13 @@ async function main() {
   const a = await client("a", TOKEN_A);
   const b = await client("b", TOKEN_B);
 
+  // whoami tells each token-holder its own real identity -- catches a
+  // stale/wrong AGENT_RELAY_TOKEN before it silently misattributes work
+  const whoamiA = unwrap(await a.callTool({ name: "whoami", arguments: {} }));
+  const whoamiB = unwrap(await b.callTool({ name: "whoami", arguments: {} }));
+  ok(whoamiA.agent_id === "claude-a", "whoami on the A-token client reports claude-a");
+  ok(whoamiB.agent_id === "claude-b", "whoami on the B-token client reports claude-b");
+
   // repo_context patch round-trips through project_state
   const state1 = unwrap(await a.callTool({ name: "get_project_state", arguments: { project_id: projectId } }));
   const updated = unwrap(
@@ -74,6 +81,7 @@ async function main() {
   ok(typeof ctxB.context_generated_at === "string" && !Number.isNaN(Date.parse(ctxB.context_generated_at)), "context_generated_at is a valid timestamp");
   ok(ctxB.project_state_version === Number(updated.version), "project_state_version matches the state just written");
   ok(ctxB.event_seq_high_watermark >= 1, "event_seq_high_watermark is a real number, not zero, after real events happened");
+  ok(ctxB.caller_agent_id === "claude-b", "get_project_context reports the caller's own identity (B's token -> claude-b)");
 
   // get_project_context must NOT mutate receipt state (pure read)
   const inboxAfter = unwrap(await b.callTool({ name: "get_inbox", arguments: { project_id: projectId } }));

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AuthenticatedAgent } from "./auth.js";
 import { sendMessage, sendMessageSchema } from "./tools/sendMessage.js";
@@ -44,6 +45,18 @@ function errorResult(err: unknown) {
  */
 export function buildMcpServer(caller: AuthenticatedAgent): McpServer {
   const server = new McpServer({ name: "agent-relay", version: "1.0.0" });
+
+  server.registerTool(
+    "whoami",
+    {
+      description:
+        "Returns which agent this bearer token actually authenticates as. Call this at the start of any session before doing anything mutating -- a stale or wrong AGENT_RELAY_TOKEN produces a session that looks fine but silently acts as the wrong identity, attributing its work to someone else.",
+      inputSchema: z.object({}),
+    },
+    async () => {
+      return json({ agent_id: caller.agentId, display_name: caller.displayName, kind: caller.kind });
+    }
+  );
 
   server.registerTool(
     "send_message",
