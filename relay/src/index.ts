@@ -18,11 +18,7 @@ app.get("/healthz", async (_req, res) => {
   }
 });
 
-// Railway's edge mangles HTTP framing on any path ending in /mcp (it sends
-// `transfer-encoding: chunked` with an unchunked body), which Claude Code's
-// client cannot parse and reports as "Request timed out". /rpc is served by
-// the same handler and is unaffected; /mcp stays for anything still using it.
-app.post(["/mcp", "/rpc"], async (req, res) => {
+app.post("/mcp", async (req, res) => {
   let caller;
   try {
     caller = await authenticate(req.header("authorization"));
